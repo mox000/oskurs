@@ -9,7 +9,7 @@
 #define IMAGE_FILE "image"
 #define ARGS "[--extended] [--vm] <bootblock> <executable-file> ..."
 
-#define SECTOR_SIZE 512
+#define SECTOR_SIZE 512 //define the size of the sector
 
 
 /* Variable to store pointer to program name */
