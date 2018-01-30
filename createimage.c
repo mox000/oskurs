@@ -108,7 +108,7 @@ static void create_image(int nfiles, char *files[])
         printf("step 4\n");
 
         for(j = 0; j < header.e_phnum; j++){
-            printf("123 heipådeg\n");
+            printf("123 hei\n");
             
             lest = fread(p_header, sizeof(Elf32_Phdr), 1, open_file);
 
