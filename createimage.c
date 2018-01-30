@@ -67,135 +67,111 @@ static void create_image(int nfiles, char *files[])
      * of createimage.  Don't forget to structure the code into
      * multiple functions in a way whichs seems logical, otherwise the
      * solution will not be accepted. */
-    //P_FILESZ ER STØRRELSEN PÅ FILEN, ALTSÅ HELE LINJEN - OFFSET
-    //P_OFFSET ER DER VI SKAL STARTE Å LESE, ALTSÅ HVOR MANGE BYTES VI MÅ HOPPE OVER PÅ STARTEN
-    //E_PHNUM HOLDS THE NUMBER OF ENTRIES IN THE PROGRAM HEADER.
-    //E_PHOFF HOLDS THE PROGRAM HEADER TABLE FILE OFFSET IN BYTES. IF THERE IS NO HEADER IT HOLDS ZER0
-    // elf er der hvor programmene ligger. så når man går inn i en header, der er det programheadere som vet hvor programmen ligger.
-    Elf32_Ehdr header; //er elf 32 og er en struct som inneholder elfene vi skal bruke senere
+    //P_FILESZ is the size of the file
+    //P_OFFSETis what we will read, the amount of bits to skip in the beginning
+    //E_PHNUM holds the number of entries in the program header
+    //E_PHOFF holds the program header table file offset in bytes, if there is no header, it holds zero
+    //ELF is where the programs are placed. when entering an elfheader, it contains programheaders that know where the programs are placed
+    //elf 32 is a struct and contains the "elfs" we are using later
+   
+    Elf32_Ehdr header; 
     FILE * open_file;
     int i, j;
-    int lest;
-    int leftover_bytes;
+    int read;               //the read file
+    int leftover_bytes; 
     int totalbyte;
-    int bytesize;
-    int amount_of_sector;
+    int amount_of_sector;   //the amount of sectors
 
-    char buffer[6000];
 
-    //assemblyfil har 61 bytes
-    //c-filen har 4309 bytes 
 
+    //assembly file has 61 bytes
+    //c-file has 4309 bytes 
+
+
+    //opens the imagefile, w+ makes it able to open, read and overwrite and create a new file if it is needed
     FILE *imagefile = fopen(IMAGE_FILE, "w+");
 
-    //lese igjennom filene for å finne riktig fil. dette gjøres så lenge i er mindre enn antall filer og forutsetter at det er filen i *files
+    //declares that it will have the possibility to open the files and it will start at the first and work its way through. condition there has to be files.
     for(i = 0; i < nfiles; i++)
     {
-        printf("step 1\n");
-
+        //opens the files on position "i", in this case we are opening non text files, therefore using rb
         open_file = fopen(files[i], "rb");
-        //fprintf(stderr, "This version of %s doesn't do anything.\n", open_file);
         
-        printf("step 2\n");
-        lest = fread(&header, sizeof(Elf32_Ehdr), 1, open_file);
+        //reads all the elf headers, their size containings
+        read = fread(&header, sizeof(Elf32_Ehdr), 1, open_file);
 
-
-        
-        //fprintf(stderr, "This version of %s doesn't do anything.\n", lest);
-        printf("step3 \n");
+        //allocates memory to the program header
         Elf32_Phdr *p_header = malloc(sizeof(Elf32_Phdr)*header.e_phnum);
 
-        printf("step 4\n");
+        //runs through the program and e_phnum holds the number of entries.
+        for(j = 0; j < header.e_phnum; j++)
+            {
+                //reads the program header of the files in elf
+                read = fread(p_header, sizeof(Elf32_Phdr), 1, open_file);
 
-        for(j = 0; j < header.e_phnum; j++){
-            printf("123 hei\n");
-            
-            lest = fread(p_header, sizeof(Elf32_Phdr), 1, open_file);
+                //seeks the file, reads from the beginning
+                fseek(open_file, p_header->p_offset, SEEK_SET);
 
-            printf("step 5\n");
+                //the segment size
+                leftover_bytes = p_header->p_filesz;
 
-            fseek(open_file, p_header->p_offset, SEEK_SET);
-
-            leftover_bytes = p_header->p_filesz;
-
-
-            for(int i = 0; i < leftover_bytes; i++){
+            //for each segment start at beginning and go through
+            for(int i = 0; i < leftover_bytes; i++)
+            {
+                //collects readfile
                 char c = fgetc(open_file);
+                //adds the readfile to the image
                 fputc(c, imagefile);
             }
-            fprintf(stderr, "remaining bytes: %d\n", leftover_bytes);
 
-            printf("step 6 \n");
-
-            fprintf(stderr, "buffer inneholder: %d \n ", buffer);
-
+            //segment size
             totalbyte = p_header->p_filesz;
-            fprintf(stderr, "total bytes: %d\n", totalbyte);
-            
 
-
-            leftover_bytes -= lest;
-            printf("du er fucked,%d \n", leftover_bytes);
-
+            //bootblock entry
             if(i==0)
             {
-                printf("\nnå kjører if i==0\n");
-                
-                printf("I = %d\n", i);
-
-                printf("\nhenter imagefile og sette 55AA på korrekt plass\n");
+                //collects file
                 fseek(imagefile, 0x1fe, SEEK_SET);
+                //adds 55AA to the file, and works as a termination signal
                 fputc(0x55, imagefile);
                 fputc(0xAA,imagefile);
 
             }
 
+            //inside the kernel-file
             if(i==1)
             {
-                printf("\nnå kjører i==1\n");
-                printf("I = %d\n", i);
-                
-                printf("total bytes er: %d\n", totalbyte);
-                printf("SECTOR_SIZE er : %d\n", SECTOR_SIZE);
+                //if the total amount of bytes divided on the sectorsize is 0 
                 if(totalbyte % SECTOR_SIZE == 0)
                 {
+                    //set the amount of sectors
                     amount_of_sector = (totalbyte/SECTOR_SIZE);
-                    printf("amount_of_sector er %d\n", amount_of_sector);
 
                 }
+                //if the modulo is anything else than 0,. since amount_of_sector is an int it will reduce down we have to add 1.
                 else
                 {
                       amount_of_sector = (totalbyte/SECTOR_SIZE) + 1;
-
                 }
-              
-                printf("amount_of_sector er %d\n", amount_of_sector);
 
+                //finding the total amount of bytes
                 int totalsize = (amount_of_sector*SECTOR_SIZE);
-
+                
+                //finding the difference of the amount that will fill the blocks compared to the actual amount
                 int dif = (totalsize - totalbyte);
 
+                //if there is a difference use fputc to pad the remaining
                 for(i = 0; i < dif; i++)
                 {
                     fputc(0x0, imagefile);
                 }
 
+                //finds the correct place to put in amount of sectors and writes it in
                 fseek(imagefile, 0x2, SEEK_SET);
                 fputc(amount_of_sector, imagefile);
-
-                
-
-
             }
-
-
         }
-
-
     }
-
-
-    //fprintf (stderr, "This version of %s doesn't do anything.\n", progname);
 }
 
 
@@ -213,23 +189,3 @@ static void error(char *fmt, ...)
     exit (EXIT_FAILURE);
 }
 
-
-
-
-
-
-/*
-
-                int kernel = (totalbyte - bytesize);
-
-                int sector = ceil(leftover_bytes/sector_size);
-                int sector2 = (leftover_bytes/sector_size);
-
-                int total_kernel = (sector*sector_size);
-
-                int total_imagefile = (total_kernel + sector_size);
-
-                fseek(imagefile, 0x2, SEEK_SET);
-                fputc(sector, imagefile);
-                printf("hvis den har kommet hit sjekk image");
-*/

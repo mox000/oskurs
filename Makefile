@@ -5,7 +5,7 @@ FLOPPYDEV ?= $(shell ./flpdevdetect)
 CC = gcc
 LD = ld
 
-CREATEIMAGE=./createimage.given
+CREATEIMAGE=./createimage
 BOOTBLOCK=bootblock
 
 # When you are ready to test your own implementation of createimage, you
